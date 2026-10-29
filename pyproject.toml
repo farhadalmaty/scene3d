@@ -1,0 +1,24 @@
+[project]
+name = "scene3d"
+version = "0.3.0"
+description = "Open-vocabulary 3D object map from monocular video (ConceptGraphs-style) with an AI-agent interface"
+requires-python = ">=3.10"
+dependencies = ["numpy", "scipy", "scikit-learn", "opencv-python", "matplotlib"]
+
+[project.optional-dependencies]
+models = ["open_clip_torch", "pillow", "ultralytics"]   # install torch separately (CPU wheel on Windows)
+compress = ["imageio-ffmpeg"]
+server = ["fastapi", "uvicorn", "python-multipart"]
+agent = ["anthropic", "mcp"]
+all = ["imageio-ffmpeg", "open_clip_torch", "pillow", "ultralytics", "fastapi", "uvicorn", "python-multipart", "anthropic", "mcp"]
+
+[project.scripts]
+scene3d = "scene3d.cli:main"
+scene3d-mcp = "scene3d.mcp_server:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

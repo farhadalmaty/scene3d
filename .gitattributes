@@ -1,0 +1,11 @@
+# Скрипты Windows должны оставаться с окончаниями строк CRLF, иначе .bat могут работать неправильно
+*.bat text eol=crlf
+*.cmd text eol=crlf
+# Остальной код хранится с LF
+*.py text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+# Бинарные файлы документации
+*.docx binary
+*.png binary

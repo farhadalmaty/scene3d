@@ -1,0 +1,118 @@
+# ============================================================
+# scene3d: что НЕ нужно загружать на GitHub
+# ============================================================
+
+# --- Виртуальное окружение и чужой код (ставятся скриптами windows\setup.bat) ---
+.venv/
+venv/
+env/
+third_party/
+
+# --- Python: кэш и сборка ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Результаты работы программы ---
+data/
+data - 3/
+data - 4/
+data - 2/
+data - 5/
+data - 6/
+data - 7/
+out/
+output/
+outputs/
+scenes/
+inspect/
+crops/
+annotated/
+annotated*
+source.*
+plan.png
+process_info.json
+geometry.npz
+arrays.npz
+scene.json
+ranking.csv
+
+# --- Видео (шаблоны не зависят от регистра: iPhone называет файлы IMG_0001.MOV, .MP4 и т. д.) ---
+*.[mM][pP]4
+*.[mM][oO][vV]
+*.[mM]4[vV]
+*.[aA][vV][iI]
+*.[mM][kK][vV]
+*.[wW][eE][bB][mM]
+*.[hH][eE][vV][cC]
+*.[hH]264
+*.3[gG][pP]
+*.[mM][tT][sS]
+*.[mM]2[tT][sS]
+
+# --- Фото и картинки (иллюстрации документации в docs/img разрешены ниже) ---
+*.[pP][nN][gG]
+*.[jJ][pP][gG]
+*.[jJ][pP][eE][gG]
+*.[hH][eE][iI][cC]
+*.[hH][eE][iI][fF]
+*.[gG][iI][fF]
+*.[bB][mM][pP]
+*.[tT][iI][fF]
+*.[tT][iI][fF][fF]
+*.[wW][eE][bB][pP]
+*.[dD][nN][gG]
+!docs/img/
+!docs/img/*.[pP][nN][gG]
+
+# --- Веса моделей (скачиваются сами при первом запуске; расширения не зависят от регистра) ---
+*.[pP][tT]
+*.[pP][tT][hH]
+*.[oO][nN][nN][xX]
+*.[sS][aA][fF][eE][tT][eE][nN][sS][oO][rR][sS]
+*.[cC][kK][pP][tT]
+*.[eE][nN][gG][iI][nN][eE]
+*.[tT][fF][lL][iI][tT][eE]
+*.[mM][lL][mM][oO][dD][eE][lL]
+*.[mM][lL][pP][aA][cC][kK][aA][gG][eE]
+.cache/
+huggingface/
+
+# --- Секреты: ключи API никогда не коммитим ---
+.env
+.env.*
+*.[kK][eE][yY]
+*.[pP][eE][mM]
+secrets*
+api_key*
+
+# --- Архивы и временные файлы ---
+*.[zZ][iI][pP]
+*.7[zZ]
+*.[rR][aA][rR]
+*.[tT][aA][rR]
+*.[tT][aA][rR].[gG][zZ]
+*.[lL][oO][gG]
+*.[tT][mM][pP]
+*.[bB][aA][kK]
+~$*
+
+# --- Данные результатов (сжатые массивы) ---
+*.[nN][pP][zZ]
+*.[nN][pP][yY]
+
+# --- Редакторы и система ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
