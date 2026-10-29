@@ -10,6 +10,24 @@ from .processing import ProcessConfig, process_video
 from .store import SceneStore
 
 
+def config_from_request(base: ProcessConfig, camera: str = "", fov_long: float = 0.0, intrinsics_json: str = "") -> ProcessConfig:
+    """Per-upload camera information -> ProcessConfig. Priority: exact intrinsics > fov_long > camera preset > model guess."""
+    import dataclasses, json
+    from ..presets import CAMERA_FOV
+    kw = {}
+    if intrinsics_json:
+        d = json.loads(intrinsics_json)
+        need = {"fx", "fy", "cx", "cy", "width", "height"}
+        if not need <= set(d): raise ValueError(f"intrinsics_json needs keys {sorted(need)}")
+        kw["camera_intrinsics"] = {k: float(d[k]) for k in need}
+    elif fov_long:
+        kw["fov_long"] = float(fov_long)
+    elif camera:
+        if camera not in CAMERA_FOV: raise ValueError(f"unknown camera {camera!r}; use one of {sorted(CAMERA_FOV)}")
+        kw["fov_long"] = CAMERA_FOV[camera]
+    return dataclasses.replace(base, **kw) if kw else base
+
+
 class SceneService:
     def __init__(self, data_dir="data", backends_factory=None, config: ProcessConfig | None = None):
         self.store = SceneStore(data_dir)

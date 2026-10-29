@@ -13,6 +13,8 @@ from ..compress import prepare_source
 
 @dataclass
 class ProcessConfig:
+    camera_intrinsics: dict | None = None  # exact intrinsics reported by the camera: {fx, fy, cx, cy, width, height}
+    fov_long: float | None = None      # known camera field of view in degrees along the long side of the frame (None: model guesses)
     hi_side: int | None = 960          # long side of the frames used for segmentation/recognition (None: depth resolution)
     da3_res: int | None = None         # long side the depth model works at (library default 504); larger = more detail, slower
     save_crops: bool = True            # keep tagging crops so `scene3d retag` can rename objects without re-running the depth model
@@ -52,6 +54,9 @@ def process_video(video, out_dir, backends, cfg: ProcessConfig | None = None, pr
     cb("frames", 1.0, f"{len(rgbs)} keyframes, frame size {vmeta['orig_wh'][0]}x{vmeta['orig_wh'][1]}, rotation applied {vmeta['rotation']} deg")
 
     cb("geometry", 0.0, "estimating camera poses and depth (slowest step on CPU)")
+    if hasattr(backends.geometry, "fov_long"):
+        backends.geometry.fov_long = cfg.fov_long
+        backends.geometry.known_K = cfg.camera_intrinsics
     if cfg.depth_conf_cut is not None and hasattr(backends.geometry, "conf_percentile"):
         backends.geometry.conf_percentile = float(cfg.depth_conf_cut)
     if cfg.da3_res and hasattr(backends.geometry, "process_res"):
@@ -61,7 +66,13 @@ def process_video(video, out_dir, backends, cfg: ProcessConfig | None = None, pr
         fr.rgb_hi = hi
     cb("geometry", 1.0, "done")
 
-    info = {"n_keyframes": len(frames), "scale_factor": 1.0, "tilt_deg": None}
+    Kmean = np.mean([f.K for f in frames], axis=0); h_, w_ = frames[0].depth.shape
+    info = {"n_keyframes": len(frames), "scale_factor": 1.0, "tilt_deg": None, "fov_long_given": cfg.fov_long, "intrinsics_given": cfg.camera_intrinsics,
+            "model_fy_over_fx": round(float(Kmean[1, 1] / Kmean[0, 0]), 3),
+            "model_fov_long_deg": round(float(2 * np.degrees(np.arctan(max(h_, w_) / 2 / (Kmean[1, 1] if h_ >= w_ else Kmean[0, 0])))), 1),
+            "geometry_notes": list(getattr(backends.geometry, "notes", []))}
+    if abs(info["model_fy_over_fx"] - 1) > 0.1:
+        cb("geometry", 1.0, f"warning: fy/fx = {info['model_fy_over_fx']} (should be 1.00): the camera model is distorted; try --camera ultrawide or `scene3d calibrate-fov`")
     if cfg.auto_up:
         _, tilt = align_gravity(frames, refine=cfg.refine_up); info["tilt_deg"] = round(tilt, 1)
     if cfg.scale_target_depth:

@@ -1,6 +1,7 @@
 """REST API (FastAPI) — the contract a future phone app talks to.
 
-  POST /api/scenes                     multipart: video, name   -> {scene_id}
+  POST /api/scenes                     multipart: video, name, camera (main|ultrawide|tele), fov_long (deg, long side),
+                                       intrinsics_json ({fx,fy,cx,cy,width,height} from the camera)  -> {scene_id}
   GET  /api/scenes                     list
   GET  /api/scenes/{id}                status / progress / counts
   GET  /api/scenes/{id}/objects        all objects
@@ -54,13 +55,17 @@ def create_app(service: SceneService):
     def health(): return {"ok": True}
 
     @app.post("/api/scenes")
-    async def upload(video: UploadFile = File(...), name: str = Form("")):
+    async def upload(video: UploadFile = File(...), name: str = Form(""), camera: str = Form(""),
+                     fov_long: float = Form(0.0), intrinsics_json: str = Form("")):
+        from .core import config_from_request
+        try: cfg = config_from_request(service.config, camera, fov_long, intrinsics_json)
+        except (ValueError, KeyError) as e: raise HTTPException(400, str(e))
         suffix = Path(video.filename or "v.mp4").suffix or ".mp4"
         tmp = Path(service.store.root) / f"upload_{uuid.uuid4().hex}{suffix}"
         with open(tmp, "wb") as f:
             while chunk := await video.read(1 << 20):
                 f.write(chunk)
-        return {"scene_id": service.submit_video(tmp, name, copy=False)}
+        return {"scene_id": service.submit_video(tmp, name, copy=False, config=cfg)}
 
     @app.get("/api/scenes")
     def scenes(): return service.store.list()

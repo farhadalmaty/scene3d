@@ -2,6 +2,9 @@ from __future__ import annotations
 import argparse, json, os, sys
 
 
+from .presets import CAMERA_FOV
+
+
 def _utf8():
     for s in (sys.stdout, sys.stderr):
         try: s.reconfigure(encoding="utf-8")           # Windows consoles default to cp866/cp1251
@@ -25,6 +28,8 @@ def main(argv=None):
     p.add_argument("--delta-nn", type=float, default=None, help="association distance floor (default 0.03)")
     p.add_argument("--delta-sim", type=float, default=None, help="association threshold (default 1.1)")
     p.add_argument("--max-objects-plot", type=int, default=40)
+    p.add_argument("--fov-long", type=float, default=None, help="camera field of view in degrees along the long side of the frame (default: model guesses)")
+    p.add_argument("--camera", choices=sorted(CAMERA_FOV), default=None, help="phone camera preset: main (1x), ultrawide (0.5x), tele (2x)")
     p.add_argument("--min-tag-prob", type=float, default=None, help="withhold names with lower confidence (default 0.35)")
     p.add_argument("--crop-mode", choices=["masked", "context", "both"], default=None, help="what the tagger sees (default masked)")
     p.add_argument("--hi-side", type=int, default=960, help="long side of frames used for segmentation/recognition; 0 = depth resolution")
@@ -59,6 +64,10 @@ def main(argv=None):
     ins = sp.add_parser("inspect", help="find out why objects have wrong names/places: ranking.csv + contact sheets")
     ins.add_argument("scene"); ins.add_argument("--ids", default="", help="object ids to always draw, e.g. 5,112,140")
     ins.add_argument("--worst", type=int, default=30, help="draw sheets for the N most suspicious objects (default 30)")
+    cf = sp.add_parser("calibrate-fov", help="find the camera field of view that fits the footage (e.g. for 0.5x ultra-wide)")
+    cf.add_argument("video"); cf.add_argument("--fovs", default="auto", help="comma-separated candidates in degrees (long side), or auto")
+    cf.add_argument("--frames", type=int, default=12, help="keyframes per trial (default 12: faster)")
+    cf.add_argument("--device", default=None); cf.add_argument("--geometry-model", default="depth-anything/da3-small")
     rt = sp.add_parser("retag", help="rename objects from the saved crops without re-running the depth model")
     rt.add_argument("scene"); rt.add_argument("--min-tag-prob", type=float, default=0.35)
     rt.add_argument("--mode", choices=["masked", "context", "both"], default="masked")
@@ -94,6 +103,7 @@ def main(argv=None):
         g = process_video(args.video, args.out, b, ProcessConfig(n_frames=args.frames, max_side=args.max_side, pipeline=pc, rotate=args.rotate,
                                               compress=not args.no_compress, compress_max_side=args.compress_side,
                                               hi_side=args.hi_side or None, da3_res=args.da3_res,
+                                              fov_long=args.fov_long or (CAMERA_FOV[args.camera] if args.camera else None),
                                               compress_crf=args.compress_crf, depth_conf_cut=args.depth_conf_cut,
                                               compress_fps=args.compress_fps), cb)
         info = json.load(open(os.path.join(args.out, "process_info.json"), encoding="utf-8"))
@@ -167,6 +177,22 @@ def main(argv=None):
             tp = '-' if r['tag_prob'] is None else f"{r['tag_prob']:.2f}"
             print(f"{r['id']:>4} {r['tag'][:16]:16s} {tp:>5} {r['n_obs']:>3} {r['median_iou']:5.2f} {r['median_cover']:5.2f} {str(r['size_ratio']):>5}  {r['verdict']}")
         print(f"\n{len(rows)} objects. Full table: {os.path.join(args.scene, 'inspect', 'ranking.csv')}; sheets: {os.path.join(args.scene, 'inspect')}")
+    elif args.cmd == "calibrate-fov":
+        from .calib import sweep_fov
+        from .video import sample_keyframes
+        from .backends.geometry_da3 import DepthAnything3Geometry
+        from .backends.models import pick_device
+        fovs = [None] + ([60.0, 70.0, 80.0, 90.0, 100.0, 110.0] if args.fovs == "auto" else [float(x) for x in args.fovs.split(",")])
+        rgbs = sample_keyframes(args.video, args.frames, 640)
+        geo = DepthAnything3Geometry(args.geometry_model, device=args.device or pick_device())
+        print(f"{len(fovs)} trials x {len(rgbs)} keyframes (each trial runs the depth model once)...", flush=True)
+        rows = sweep_fov(rgbs, geo, fovs, lambda fr, m: print(f"  {fr * 100:3.0f}%  {m}", flush=True))
+        rows.sort(key=lambda r: (r["median_px"] != r["median_px"], r["median_px"]))
+        print(f"\n{'given FOV':>10} {'error px':>9} {'model fy/fx':>11} {'model FOV':>10}")
+        for r in rows:
+            print(f"{'(model guess)' if r['fov_long'] is None else str(r['fov_long']) + ' deg':>10} {r['median_px']:9.2f} {r['fy_over_fx']:11.2f} {r['model_fov_long']:9.0f}")
+        best = next((r for r in rows if r["fov_long"] is not None), None)
+        if best: print(f"\nbest given value: --fov-long {best['fov_long']:g}   (lower error = more consistent with the images)")
     elif args.cmd == "retag":
         from .retag import retag_scene
         from .backends.models import ClipEmbedder, VocabCaptioner, COMMON_VOCAB
